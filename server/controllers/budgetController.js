@@ -1,0 +1,194 @@
+import Budget from '../models/Budget.js';
+import Transaction from '../models/Transaction.js';
+
+// ---------------------------------------------------------------------------
+// Helper – compute the spent amount for a single budget
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculates how much has been spent toward a budget in the current period.
+ *
+ * "Spent" = sum of |amount| for transactions where amount < 0 (expenses),
+ * the category matches the budget category, and the transaction date falls
+ * within the budget's period window (monthly / weekly / yearly).
+ *
+ * @param {Object} budget  Mongoose budget document
+ * @param {import('mongoose').Types.ObjectId} userId
+ * @returns {Promise<number>} Total spent (positive number)
+ */
+async function computeSpentForBudget(budget, userId) {
+  const now = new Date();
+  let startDate;
+
+  switch (budget.period) {
+    case 'weekly': {
+      startDate = new Date(now);
+      const day = startDate.getDay(); // 0=Sun … 6=Sat
+      startDate.setDate(startDate.getDate() - day); // Go to Sunday
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    }
+    case 'yearly': {
+      startDate = new Date(now.getFullYear(), 0, 1); // Jan 1
+      break;
+    }
+    case 'monthly':
+    default: {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1); // 1st of month
+      break;
+    }
+  }
+
+  // Transaction.date is stored as 'YYYY-MM-DD' string, so compare as strings
+  const startStr = startDate.toISOString().slice(0, 10);
+  const endStr = now.toISOString().slice(0, 10);
+
+  const result = await Transaction.aggregate([
+    {
+      $match: {
+        user: userId,
+        category: budget.category,
+        date: { $gte: startStr, $lte: endStr },
+        amount: { $lt: 0 },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalSpent: { $sum: { $abs: '$amount' } },
+      },
+    },
+  ]);
+
+  return result.length > 0 ? result[0].totalSpent : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/budgets
+ * List all budgets for the user with a computed `spent` field.
+ */
+export const getBudgets = async (req, res, next) => {
+  try {
+    const budgets = await Budget.find({ user: req.user._id });
+
+    // Attach the computed spent amount to each budget
+    const enriched = await Promise.all(
+      budgets.map(async (budget) => {
+        const spent = await computeSpentForBudget(budget, req.user._id);
+        const budgetObj = budget.toObject();
+        budgetObj.spent = spent;
+        return budgetObj;
+      }),
+    );
+
+    return res.json(enriched);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/budgets/overview
+ * High-level summary of all budgets.
+ */
+export const getBudgetOverview = async (req, res, next) => {
+  try {
+    const budgets = await Budget.find({ user: req.user._id });
+
+    let totalLimit = 0;
+    let totalSpent = 0;
+
+    await Promise.all(
+      budgets.map(async (budget) => {
+        const spent = await computeSpentForBudget(budget, req.user._id);
+        totalLimit += budget.limit;
+        totalSpent += spent;
+      }),
+    );
+
+    return res.json({
+      totalLimit,
+      totalSpent,
+      budgetCount: budgets.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/budgets
+ * Create a new budget. Prevents duplicate categories per user.
+ */
+export const createBudget = async (req, res, next) => {
+  try {
+    const { category } = req.body;
+
+    const existing = await Budget.findOne({
+      user: req.user._id,
+      category,
+    });
+
+    if (existing) {
+      return res
+        .status(400)
+        .json({ message: 'A budget for this category already exists' });
+    }
+
+    const budget = await Budget.create({
+      ...req.body,
+      user: req.user._id,
+    });
+
+    return res.status(201).json(budget);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PUT /api/budgets/:id
+ * Update an existing budget (scoped to user).
+ */
+export const updateBudget = async (req, res, next) => {
+  try {
+    const budget = await Budget.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      req.body,
+      { new: true, runValidators: true },
+    );
+
+    if (!budget) {
+      return res.status(404).json({ message: 'Budget not found' });
+    }
+
+    return res.json(budget);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE /api/budgets/:id
+ * Delete a budget (scoped to user).
+ */
+export const deleteBudget = async (req, res, next) => {
+  try {
+    const budget = await Budget.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!budget) {
+      return res.status(404).json({ message: 'Budget not found' });
+    }
+
+    return res.json({ message: 'Budget deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
