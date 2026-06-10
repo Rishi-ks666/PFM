@@ -14,12 +14,9 @@ export default function Budgets() {
   // Compute actual spent for each budget from transactions
   const budgetsWithSpent = useMemo(() => {
     return budgets.map((b) => {
-      const spent = transactions
-        .filter((t) => (t.convertedAmount || t.amount) < 0 && t.category === b.category)
-        .reduce((sum, t) => sum + Math.abs(t.convertedAmount || t.amount), 0);
-      return { ...b, limit: b.convertedLimit || b.limit, originalLimit: b.limit, spent };
+      return { ...b, limit: b.convertedLimit || b.limit, originalLimit: b.limit, spent: b.convertedSpent || b.spent };
     });
-  }, [budgets, transactions]);
+  }, [budgets]);
 
   const totalSpent = budgetsWithSpent.reduce((acc, curr) => acc + curr.spent, 0);
   const totalLimit = budgetsWithSpent.reduce((acc, curr) => acc + curr.limit, 0);
@@ -76,14 +73,45 @@ export default function Budgets() {
             <form onSubmit={handleAddBudget} className="space-y-4">
               <div>
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 block">Category</label>
-                <input
-                  type="text"
+                <select
                   value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="e.g. Groceries"
-                  className="w-full bg-white/[0.04] border border-white/[0.08] text-slate-200 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500/40 transition-colors placeholder:text-slate-700"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewCategory(val);
+                    // Match emoji automatically
+                    const catObj = [
+                      { value: 'Food & Drink', emoji: '☕' },
+                      { value: 'Transport', emoji: '🚗' },
+                      { value: 'Housing', emoji: '🏠' },
+                      { value: 'Entertainment', emoji: '🎬' },
+                      { value: 'Shopping', emoji: '📦' },
+                      { value: 'Health', emoji: '💪' },
+                      { value: 'Travel', emoji: '✈️' },
+                      { value: 'Education', emoji: '📚' },
+                      { value: 'Personal', emoji: '💅' },
+                      { value: 'Other', emoji: '💳' },
+                    ].find(c => c.value === val);
+                    if (catObj) setNewEmoji(catObj.emoji);
+                  }}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] text-slate-200 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500/40 transition-colors appearance-none cursor-pointer"
                   required
-                />
+                >
+                  <option value="" disabled>Select category</option>
+                  {[
+                    { value: 'Food & Drink', emoji: '☕' },
+                    { value: 'Transport', emoji: '🚗' },
+                    { value: 'Housing', emoji: '🏠' },
+                    { value: 'Entertainment', emoji: '🎬' },
+                    { value: 'Shopping', emoji: '📦' },
+                    { value: 'Health', emoji: '💪' },
+                    { value: 'Travel', emoji: '✈️' },
+                    { value: 'Education', emoji: '📚' },
+                    { value: 'Personal', emoji: '💅' },
+                    { value: 'Other', emoji: '💳' },
+                  ].map(c => (
+                    <option key={c.value} value={c.value}>{c.emoji} {c.value}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 block">Monthly Limit</label>

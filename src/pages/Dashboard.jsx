@@ -26,12 +26,9 @@ export default function Dashboard() {
   // Compute spent per budget category from actual transactions
   const dashboardBudgets = useMemo(() => {
     return budgets.slice(0, 4).map((b) => {
-      const spent = transactions
-        .filter((t) => (t.convertedAmount || t.amount) < 0 && t.category === b.category)
-        .reduce((sum, t) => sum + Math.abs(t.convertedAmount || t.amount), 0);
-      return { ...b, limit: b.convertedLimit || b.limit, originalLimit: b.limit, spent };
+      return { ...b, limit: b.convertedLimit || b.limit, originalLimit: b.limit, spent: b.convertedSpent || b.spent };
     });
-  }, [budgets, transactions]);
+  }, [budgets]);
 
   const incomeTrendStr = formatTrend(incomeTrend);
   const expensesTrendStr = formatTrend(expensesTrend);

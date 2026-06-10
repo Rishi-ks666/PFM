@@ -133,10 +133,14 @@ export function FinanceProvider({ children }) {
   const addTransaction = useCallback(async (tx) => {
     const created = await transactionService.createTransaction(tx);
     setTransactions(prev => [created, ...prev]);
-    // Refresh accounts to get updated balances
+    // Refresh accounts to get updated balances and budgets for spent amounts
     try {
-      const accountsRes = await accountService.getAccounts();
+      const [accountsRes, budgetsRes] = await Promise.all([
+        accountService.getAccounts(),
+        budgetService.getBudgets()
+      ]);
       setAccounts(Array.isArray(accountsRes) ? accountsRes : accountsRes.accounts || []);
+      setBudgets(Array.isArray(budgetsRes) ? budgetsRes : budgetsRes.budgets || []);
     } catch(e) { /* ignore */ }
     return created;
   }, []);
@@ -144,20 +148,28 @@ export function FinanceProvider({ children }) {
   const deleteTransaction = useCallback(async (id) => {
     await transactionService.deleteTransaction(id);
     setTransactions(prev => prev.filter(t => (t._id || t.id) !== id));
-    // Refresh accounts
+    // Refresh accounts and budgets
     try {
-      const accountsRes = await accountService.getAccounts();
+      const [accountsRes, budgetsRes] = await Promise.all([
+        accountService.getAccounts(),
+        budgetService.getBudgets()
+      ]);
       setAccounts(Array.isArray(accountsRes) ? accountsRes : accountsRes.accounts || []);
+      setBudgets(Array.isArray(budgetsRes) ? budgetsRes : budgetsRes.budgets || []);
     } catch(e) { /* ignore */ }
   }, []);
 
   const updateTransaction = useCallback(async (id, updates) => {
     const updated = await transactionService.updateTransaction(id, updates);
     setTransactions(prev => prev.map(t => (t._id || t.id) === id ? updated : t));
-    // Refresh accounts
+    // Refresh accounts and budgets
     try {
-      const accountsRes = await accountService.getAccounts();
+      const [accountsRes, budgetsRes] = await Promise.all([
+        accountService.getAccounts(),
+        budgetService.getBudgets()
+      ]);
       setAccounts(Array.isArray(accountsRes) ? accountsRes : accountsRes.accounts || []);
+      setBudgets(Array.isArray(budgetsRes) ? budgetsRes : budgetsRes.budgets || []);
     } catch(e) { /* ignore */ }
     return updated;
   }, []);

@@ -49,7 +49,7 @@ async function computeSpentForBudget(budget, userId) {
   // because the budget limit is in the budget's currency.
   const transactions = await Transaction.find({
     user: userId,
-    category: budget.category,
+    category: { $regex: new RegExp(`^${budget.category}$`, 'i') },
     date: { $gte: startStr, $lte: endStr },
     amount: { $lt: 0 },
   });
