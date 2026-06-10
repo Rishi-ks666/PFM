@@ -11,7 +11,7 @@ const transactionSchema = new mongoose.Schema({
   status: { type: String, enum: ['Completed', 'Pending', 'Failed', 'Cancelled'], default: 'Completed' },
   emoji: { type: String, default: '💳' },
   // Plaid fields
-  plaidTransactionId: { type: String, default: null },
+  plaidTransactionId: { type: String },
   isPlaidImported: { type: Boolean, default: false }
 }, { timestamps: true });
 
