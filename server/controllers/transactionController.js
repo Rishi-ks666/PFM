@@ -115,21 +115,43 @@ export const getTransactionById = async (req, res, next) => {
  */
 export const createTransaction = async (req, res, next) => {
   try {
-    const currency = req.body.currency || req.user.preferredCurrency || 'USD';
+    const currency =
+      req.body.currency ||
+      req.user.preferredCurrency ||
+      'USD';
 
-    const transaction = await Transaction.create({
-      ...req.body,
+    const transactionData = {
+      merchant: req.body.merchant,
+      category: req.body.category,
+      amount: req.body.amount,
+      date: req.body.date,
+      account: req.body.account || null,
+      emoji: req.body.emoji || '💳',
+      status: req.body.status || 'Completed',
       currency,
       user: req.user._id,
-    });
+      isPlaidImported: false,
+    };
 
-    // If an account is linked, adjust its balance
+    // Only include Plaid ID if it actually exists
+    if (
+      req.body.plaidTransactionId &&
+      req.body.plaidTransactionId.trim() !== ''
+    ) {
+      transactionData.plaidTransactionId =
+        req.body.plaidTransactionId;
+    }
+
+    const transaction = await Transaction.create(
+      transactionData
+    );
+
     if (transaction.account) {
-      const account = await Account.findById(transaction.account);
+      const account = await Account.findById(
+        transaction.account
+      );
+
       if (account) {
-        // Here we should technically convert the transaction amount to the account's currency,
-        // but for simplicity (as requested by 'minimal breaking changes'), we assume they match
-        // or we simply adjust the balance. A true multi-currency ledger is complex.
         account.balance += transaction.amount;
         account.isPositive = account.balance >= 0;
         await account.save();
@@ -137,9 +159,18 @@ export const createTransaction = async (req, res, next) => {
     }
 
     const { rates } = await getRates();
-    const targetCurrency = req.user.preferredCurrency || 'USD';
+    const targetCurrency =
+      req.user.preferredCurrency || 'USD';
 
-    return res.status(201).json(convertTransaction(transaction.toObject(), targetCurrency, rates));
+    return res
+      .status(201)
+      .json(
+        convertTransaction(
+          transaction.toObject(),
+          targetCurrency,
+          rates
+        )
+      );
   } catch (err) {
     next(err);
   }
