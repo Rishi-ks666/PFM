@@ -37,7 +37,7 @@ export function FinanceProvider({ children }) {
         try {
           const profile = await authService.getProfile();
           setUser(profile);
-          setCurrencyState(profile.currency || 'USD');
+          setCurrencyState(profile.preferredCurrency || 'USD');
           await fetchAllData();
         } catch (err) {
           console.error('Session expired:', err);
