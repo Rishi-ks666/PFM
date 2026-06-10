@@ -26,7 +26,7 @@ const app = express();
 // ── Global Middleware ───────────────────────────────────────────────────
 app.use(helmet());
 // Allow the frontend dev server origin (configurable) and localhost dev ports
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://finanacemanager.vercel.app';
 app.use(
   cors({
     origin: (origin, callback) => {

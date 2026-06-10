@@ -22,3 +22,5 @@ services:
         sync: false
       - key: PLAID_SECRET
         sync: false
+      - key: FRONTEND_URL
+        value: https://finanacemanager.vercel.app
